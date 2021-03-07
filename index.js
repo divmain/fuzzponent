@@ -15,15 +15,22 @@ const MAX_CHILDREN = 80;
 
 const arrayUntil = len => [...Array(len)].map((_, i) => i);
 
-const generateFunctionalComponentModule = (children=[]) => {
+const generateFunctionalComponentModule = (componentName, children=[]) => {
   const body = [
     generateImport("React", "react"),
     ...children.map(childName => generateImport(childName, `./${childName}`)),
+    t.variableDeclaration(
+      "const",
+      [t.variableDeclarator(
+        t.identifier(componentName),
+        t.arrowFunctionExpression(
+          [],
+          generateJSXElement("div", children.map(childName => generateJSXElement(childName)))
+        )
+      )]
+    ),
     t.exportDefaultDeclaration(
-      t.arrowFunctionExpression(
-        [],
-        generateJSXElement("div", children.map(childName => generateJSXElement(childName)))
-      )
+      t.identifier(componentName)
     )
   ];
 
@@ -56,12 +63,16 @@ function* generateModules(name, remainingDepth, seqGenerator, opts) {
   const filename = `${name}.js`;
   let ast;
 
+  if (name === 'index') {
+    name = 'RootComponent'
+  }
+
   if (remainingDepth === 0) {
-    ast = generateFunctionalComponentModule();
+    ast = generateFunctionalComponentModule(name);
   } else {
     const numChildren = seqGenerator.intBetween(opts.minChild, opts.maxChild);
     const children = arrayUntil(numChildren).map(() => generateComponentName(seqGenerator, opts));
-    ast = generateFunctionalComponentModule(children);
+    ast = generateFunctionalComponentModule(name, children);
 
     for (const child of children) {
       yield* generateModules(child, remainingDepth - 1, seqGenerator, opts);
