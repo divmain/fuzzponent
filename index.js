@@ -44,31 +44,29 @@ const generateImport = (componentName, requireString) => t.importDeclaration(
 
 const validFirstChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const validOtherChars = "abcdefghijklmnopqrstuvwxyz";
-function generateComponentName (seqGenerator) {
-  const numOtherChars = seqGenerator.intBetween(MIN_COMPONENT_NAME_LEN, MAX_COMPONENT_NAME_LEN);
+function generateComponentName (seqGenerator, opts) {
+  const numOtherChars = seqGenerator.intBetween(opts.minLen, opts.maxLen);
   const firstChar = validFirstChars[seqGenerator.range(validFirstChars.length)];
   const otherChars = arrayUntil(numOtherChars)
     .map(() => validOtherChars[seqGenerator.range(validOtherChars.length)]);
   return `${firstChar}${otherChars.join("")}`;
 }
 
-function* generateModules(name, remainingDepth, seqGenerator) {
+function* generateModules(name, remainingDepth, seqGenerator, opts) {
   const filename = `${name}.js`;
   let ast;
 
   if (remainingDepth === 0) {
     ast = generateFunctionalComponentModule();
   } else {
-    const numChildren = seqGenerator.intBetween(MIN_CHILDREN, MAX_CHILDREN);
-    const children = arrayUntil(numChildren).map(() => generateComponentName(seqGenerator));
+    const numChildren = seqGenerator.intBetween(opts.minChild, opts.maxChild);
+    const children = arrayUntil(numChildren).map(() => generateComponentName(seqGenerator, opts));
     ast = generateFunctionalComponentModule(children);
 
     for (const child of children) {
-      yield* generateModules(child, remainingDepth - 1, seqGenerator);
+      yield* generateModules(child, remainingDepth - 1, seqGenerator, opts);
     }
   }
-
-  console.log(`yielding ${filename}`);
 
   yield {
     filename,
@@ -76,11 +74,11 @@ function* generateModules(name, remainingDepth, seqGenerator) {
   }
 }
 
-function generateFuzzponents(depth, seed, outdir) {
+function generateFuzzponents(outdir, seed, depth, opts) {
   const seqGenerator = getSequenceGenerator(seed);
 
   const filenames = new Set();
-  for (const { filename, content } of generateModules("index", depth, seqGenerator)) {
+  for (const { filename, content } of generateModules("index", depth, seqGenerator, opts)) {
     if (filenames.has(filename)) {
       throw new Error(`Seed "${seed}" generates output with filename collisions.`);
     } else {
@@ -92,7 +90,12 @@ function generateFuzzponents(depth, seed, outdir) {
 }
 
 if (require.main === module) {
-  const { depth, seed, outdir } = require("yargs")
+  const {
+    outdir,
+    seed,
+    depth,
+    ...opts
+  } = require("yargs")
     .option("depth", {
       alias: "d",
       demandOption: true,
@@ -113,9 +116,45 @@ if (require.main === module) {
       type: "string",
       normalize: true
     })
+    .option("minLen", {
+      demandOption: false,
+      default: MIN_COMPONENT_NAME_LEN,
+      describe: "the smallest acceptible component name length",
+      type: "number"
+    })
+    .option("maxLen", {
+      demandOption: false,
+      default: MAX_COMPONENT_NAME_LEN,
+      describe: "the largest acceptible component name length",
+      type: "number"
+    })
+    .option("minLen", {
+      demandOption: false,
+      default: MIN_COMPONENT_NAME_LEN,
+      describe: "the smallest acceptible component name length",
+      type: "number"
+    })
+    .option("maxLen", {
+      demandOption: false,
+      default: MAX_COMPONENT_NAME_LEN,
+      describe: "the largest acceptible component name length",
+      type: "number"
+    })
+    .option("minChild", {
+      demandOption: false,
+      default: MIN_CHILDREN,
+      describe: "the smallest number of acceptible component children",
+      type: "number"
+    })
+    .option("maxChild", {
+      demandOption: false,
+      default: MAX_CHILDREN,
+      describe: "the largest number of acceptible component children",
+      type: "number"
+    })
     .argv;
 
-  generateFuzzponents(depth, seed, outdir);
+  generateFuzzponents(outdir, seed, depth, opts);
 }
 
 module.exports = generateFuzzponents;
