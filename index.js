@@ -25,7 +25,9 @@ const generateFunctionalComponentModule = (componentName, children=[]) => {
         t.identifier(componentName),
         t.arrowFunctionExpression(
           [],
-          generateJSXElement("div", children.map(childName => generateJSXElement(childName)))
+          t.parenthesizedExpression(
+            generateJSXElement("div", children.map(childName => generateJSXElement(childName)))
+          )
         )
       )]
     ),
@@ -60,7 +62,7 @@ function generateComponentName (seqGenerator, opts) {
 }
 
 function* generateModules(name, remainingDepth, seqGenerator, opts) {
-  const filename = `${name}.js`;
+  const filename = `${name}.${opts.extension}`;
   let ast;
 
   if (name === 'index') {
@@ -162,6 +164,11 @@ if (require.main === module) {
       default: MAX_CHILDREN,
       describe: "the largest number of acceptible component children",
       type: "number"
+    })
+    .option("extension", {
+      default: "jsx",
+      describe: "extension to use for generated components",
+      type: "string"
     })
     .argv;
 
